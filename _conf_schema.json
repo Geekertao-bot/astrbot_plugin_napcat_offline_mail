@@ -1,0 +1,106 @@
+{
+  "heartbeat_interval": {
+    "description": "心跳检测间隔（秒）",
+    "type": "int",
+    "default": 60,
+    "slider": {
+      "min": 15,
+      "max": 600,
+      "step": 15
+    },
+    "hint": "每隔多少秒调用一次 get_status。默认 60 秒。"
+  },
+  "fail_threshold": {
+    "description": "连续失败多少次判离线",
+    "type": "int",
+    "default": 3,
+    "slider": {
+      "min": 1,
+      "max": 10,
+      "step": 1
+    },
+    "hint": "默认 3 次 × 60 秒 ≈ 3 分钟，避免网络抖动误报。"
+  },
+  "alert_when_no_adapter": {
+    "description": "找不到 aiocqhttp 适配器时也告警",
+    "type": "bool",
+    "default": false,
+    "hint": "默认关闭：AstrBot 里没有配置 NapCat 适配器属于配置问题，不该发掉线邮件。"
+  },
+  "email_config": {
+    "description": "SMTP 邮件配置",
+    "type": "object",
+    "hint": "掉线告警只依赖 SMTP，不依赖 QQ 通道是否在线。",
+    "items": {
+      "sender": {
+        "description": "发信地址",
+        "type": "string",
+        "hint": "例如 bot@example.com，一般与用户名相同。"
+      },
+      "username": {
+        "description": "SMTP 用户名",
+        "type": "string",
+        "hint": "登录 SMTP 的用户名，通常就是发信邮箱。"
+      },
+      "password": {
+        "description": "SMTP 密码 / 授权码",
+        "type": "string",
+        "secret": true
+      },
+      "display_name": {
+        "description": "发件人显示名称",
+        "type": "string",
+        "default": "NapCat 掉线告警"
+      },
+      "smtp_server": {
+        "description": "SMTP 服务器",
+        "type": "string",
+        "hint": "QQ 邮箱：smtp.qq.com；其他邮箱按服务商填写。"
+      },
+      "smtp_port": {
+        "description": "SMTP 端口",
+        "type": "int",
+        "default": 465,
+        "hint": "SSL 465，TLS 587，不加密 25。"
+      },
+      "encryption": {
+        "description": "加密方式",
+        "type": "string",
+        "options": [
+          "SSL",
+          "TLS",
+          "不启用"
+        ],
+        "default": "SSL"
+      },
+      "recipients": {
+        "description": "收件人列表",
+        "type": "list",
+        "default": [],
+        "hint": "可以填多个邮箱地址。"
+      }
+    }
+  },
+  "email_template": {
+    "description": "邮件模板",
+    "type": "object",
+    "collapsed": true,
+    "hint": "支持变量：{{bot_id}} {{nickname}} {{platform}} {{timestamp}} {{reason}} {{last_success}} {{fail_count}} {{hostname}}",
+    "items": {
+      "subject": {
+        "description": "邮件主题",
+        "type": "text",
+        "editor_mode": true,
+        "editor_language": "text",
+        "default": "【NapCat 掉线】{{nickname}}（{{bot_id}}）于 {{timestamp}} 离线"
+      },
+      "body": {
+        "description": "邮件正文（HTML）",
+        "type": "text",
+        "editor_mode": true,
+        "editor_language": "html",
+        "default": "<div style=\"max-width:620px;margin:0 auto;font-family:Arial,sans-serif;color:#333;\"><div style=\"background:#c0392b;padding:18px 22px;border-radius:8px 8px 0 0;\"><h2 style=\"color:#fff;margin:0;font-size:20px;\">NapCat 掉线告警</h2></div><div style=\"background:#fff;padding:22px;border:1px solid #ddd;border-top:none;border-radius:0 0 8px 8px;\"><p style=\"line-height:1.7;\">检测到 NapCat / OneBot v11 连接已离线，需要人工处理（重新扫码、重启 NapCat 或检查网络）。</p><table style=\"width:100%;border-collapse:collapse;margin-top:14px;font-size:14px;\"><tr><td style=\"padding:9px 12px;background:#f8f9fa;border:1px solid #e9ecef;font-weight:bold;width:110px;\">Bot</td><td style=\"padding:9px 12px;border:1px solid #e9ecef;\">{{nickname}}（{{bot_id}}）</td></tr><tr><td style=\"padding:9px 12px;background:#f8f9fa;border:1px solid #e9ecef;font-weight:bold;\">离线时间</td><td style=\"padding:9px 12px;border:1px solid #e9ecef;\">{{timestamp}}</td></tr><tr><td style=\"padding:9px 12px;background:#f8f9fa;border:1px solid #e9ecef;font-weight:bold;\">最后在线</td><td style=\"padding:9px 12px;border:1px solid #e9ecef;\">{{last_success}}</td></tr><tr><td style=\"padding:9px 12px;background:#f8f9fa;border:1px solid #e9ecef;font-weight:bold;\">原因</td><td style=\"padding:9px 12px;border:1px solid #e9ecef;\">{{reason}}</td></tr><tr><td style=\"padding:9px 12px;background:#f8f9fa;border:1px solid #e9ecef;font-weight:bold;\">连续失败</td><td style=\"padding:9px 12px;border:1px solid #e9ecef;\">{{fail_count}} 次</td></tr></table><p style=\"color:#888;font-size:12px;margin-top:16px;\">主机：{{hostname}} · 本次掉线只发送这一封邮件，恢复后不会另发上线提醒。</p></div></div>"
+      }
+    }
+  }
+}
