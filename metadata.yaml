@@ -2,7 +2,7 @@ name: astrbot_plugin_napcat_offline_mail
 display_name: NapCat 掉线邮件
 desc: 专为 NapCat / OneBot v11 的掉线邮件告警：心跳调用 get_status，连续失败或明确离线时发一封邮件；不含 SnowLuma、不发上线提醒，纯标准库无第三方依赖。
 short_desc: NapCat 掉线后发邮件，一次掉线一封
-version: v1.0.0
+version: v1.0.2
 author: Geekertao-bot
 repo: https://github.com/Geekertao-bot/astrbot_plugin_napcat_offline_mail.git
 astrbot_version: ">=4.16,<5"

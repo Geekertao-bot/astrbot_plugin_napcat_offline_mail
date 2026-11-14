@@ -43,7 +43,7 @@ REPO_URL = "https://github.com/Geekertao-bot/astrbot_plugin_napcat_offline_mail"
     PLUGIN_NAME,
     "Geekertao-bot",
     "NapCat 掉线邮件通知（基于 VanillaNahida/astrbot_plugin_offline_notice 改造）",
-    "1.0.0",
+    "1.0.2",
     REPO_URL,
 )
 class NapcatOfflineMailPlugin(Star):
@@ -320,24 +320,25 @@ class NapcatOfflineMailPlugin(Star):
             if state.last_success
             else "未知"
         )
-        values = {
-            "bot_id": html.escape(state.bot_id or key),
-            "nickname": html.escape(state.nickname or "未知"),
+        raw_values = {
+            "bot_id": state.bot_id or key,
+            "nickname": state.nickname or "未知",
             "platform": "NapCat / OneBot v11",
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "reason": html.escape(reason or state.last_reason or "未知"),
+            "reason": reason or state.last_reason or "未知",
             "last_success": last_success,
             "fail_count": str(state.fail_count),
-            "hostname": html.escape(socket.gethostname()),
+            "hostname": socket.gethostname(),
         }
+        safe_values = {key: html.escape(value) for key, value in raw_values.items()}
         subject = render_template(
             template.get("subject")
             or "【NapCat 掉线】{{nickname}}（{{bot_id}}）于 {{timestamp}} 离线",
-            values,
+            raw_values,
         )
         body = render_template(
             template.get("body") or self._default_body(),
-            values,
+            safe_values,
         )
         return subject, body
 
