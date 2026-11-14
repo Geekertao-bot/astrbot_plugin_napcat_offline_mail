@@ -10,7 +10,9 @@ from core.logic import (  # noqa: E402
     on_failure,
     on_reported_offline,
     on_success,
+    parse_online,
     render_template,
+    unwrap_payload,
 )
 
 
@@ -66,6 +68,21 @@ class LogicTests(unittest.TestCase):
 
     def test_render_missing_key_stays(self):
         self.assertEqual(render_template("{{a}} {{c}}", {"a": "x"}), "x {{c}}")
+
+    def test_parse_online_plain(self):
+        self.assertTrue(parse_online({"online": True}))
+        self.assertFalse(parse_online({"online": False}))
+        self.assertTrue(parse_online({"online": "true"}))
+        self.assertFalse(parse_online({"online": "false"}))
+
+    def test_parse_online_wrapped(self):
+        payload = {"status": "ok", "retcode": 0, "data": {"online": True}}
+        self.assertTrue(parse_online(payload))
+        self.assertEqual(unwrap_payload(payload), {"online": True})
+
+    def test_parse_online_bad_payload(self):
+        self.assertFalse(parse_online(None))
+        self.assertFalse(parse_online("oops"))
 
 
 if __name__ == "__main__":

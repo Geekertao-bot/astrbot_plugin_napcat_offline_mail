@@ -99,3 +99,21 @@ def render_template(template: str, values: dict) -> str:
     for key, value in values.items():
         result = result.replace("{{" + key + "}}", str(value))
     return result
+
+
+def unwrap_payload(payload):
+    """OneBot 可能返回裸对象，也可能包一层 data。"""
+    if isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+        return payload["data"]
+    return payload
+
+
+def parse_online(payload) -> bool:
+    """从 get_status 返回里解析 online，兼容 bool / 字符串 / data 包装。"""
+    data = unwrap_payload(payload)
+    if not isinstance(data, dict):
+        return False
+    value = data.get("online", False)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"true", "1", "yes", "on"}

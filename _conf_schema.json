@@ -38,6 +38,52 @@
     "default": false,
     "hint": "默认关闭：AstrBot 里没有配置 NapCat 适配器属于配置问题，不该发掉线邮件。"
   },
+  "monitor_mode": {
+    "description": "检测方式",
+    "type": "string",
+    "options": [
+      "auto",
+      "astrbot",
+      "http"
+    ],
+    "labels": [
+      "自动（优先 AstrBot 适配器）",
+      "AstrBot 适配器",
+      "NapCat HTTP API"
+    ],
+    "default": "auto",
+    "hint": "http 模式直接请求 NapCat 的 HTTP API；auto 在找不到适配器时自动用 HTTP。"
+  },
+  "napcat_http": {
+    "description": "NapCat HTTP API",
+    "type": "object",
+    "collapsed": true,
+    "hint": "monitor_mode=http/auto 且适配器不可用时使用。NapCat 需开启 HTTP 服务器。",
+    "items": {
+      "base_url": {
+        "description": "API 地址",
+        "type": "string",
+        "default": "http://127.0.0.1:3000",
+        "hint": "只填到端口，例如 http://127.0.0.1:3000，不要带 /get_status。"
+      },
+      "access_token": {
+        "description": "Access Token",
+        "type": "string",
+        "secret": true,
+        "hint": "NapCat HTTP 服务的 token；没设就留空。"
+      },
+      "timeout": {
+        "description": "请求超时（秒）",
+        "type": "int",
+        "default": 5,
+        "slider": {
+          "min": 1,
+          "max": 30,
+          "step": 1
+        }
+      }
+    }
+  },
   "email_config": {
     "description": "SMTP 邮件配置",
     "type": "object",

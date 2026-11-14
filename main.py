@@ -14,6 +14,9 @@ import html
 import json
 import socket
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from email.header import Header
 from email.mime.text import MIMEText
@@ -32,7 +35,9 @@ from .core.logic import (
     on_failure,
     on_reported_offline,
     on_success,
+    parse_online,
     render_template,
+    unwrap_payload,
 )
 
 PLUGIN_NAME = "astrbot_plugin_napcat_offline_mail"
@@ -43,7 +48,7 @@ REPO_URL = "https://github.com/Geekertao-bot/astrbot_plugin_napcat_offline_mail"
     PLUGIN_NAME,
     "Geekertao-bot",
     "NapCat 掉线邮件通知（基于 VanillaNahida/astrbot_plugin_offline_notice 改造）",
-    "1.0.2",
+    "1.1.0",
     REPO_URL,
 )
 class NapcatOfflineMailPlugin(Star):
@@ -164,22 +169,23 @@ class NapcatOfflineMailPlugin(Star):
             return f"aiocqhttp:{self_id}"
         return f"aiocqhttp:{index}"
 
-    @staticmethod
-    def _unwrap(data):
-        """兼容 OneBot 返回裸对象或 {data: {...}} 两种形式。"""
-        if isinstance(data, dict) and isinstance(data.get("data"), dict):
-            return data["data"]
-        return data
-
-    @staticmethod
-    def _truthy(value) -> bool:
-        if isinstance(value, bool):
-            return value
-        return str(value).strip().lower() in {"true", "1", "yes", "on"}
-
     async def _check_once(self):
-        platforms = self._aiocqhttp_platforms()
         now = time.time()
+        mode = str(self.config.get("monitor_mode") or "auto").strip().lower()
+        platforms = self._aiocqhttp_platforms()
+
+        if mode == "http":
+            await self._check_http(now)
+            return
+        if mode == "astrbot":
+            await self._check_adapters(platforms, now)
+            return
+        if platforms:
+            await self._check_adapters(platforms, now)
+        else:
+            await self._check_http(now)
+
+    async def _check_adapters(self, platforms: list, now: float):
         if not platforms:
             if self._cfg_bool("alert_when_no_adapter", False):
                 await self._handle_failure(
@@ -211,30 +217,110 @@ class NapcatOfflineMailPlugin(Star):
                 )
                 continue
 
-            status = self._unwrap(status)
-            online = (
-                self._truthy(status.get("online", False))
-                if isinstance(status, dict)
-                else False
-            )
-            if not online:
+            if not parse_online(status):
                 await self._handle_reported_offline(
                     key, "get_status 返回 online=false", now
                 )
                 continue
 
-            await self._handle_online(key, client, now)
+            nickname = ""
+            bot_id = ""
+            try:
+                info = unwrap_payload(await client.api.call_action("get_login_info"))
+                if isinstance(info, dict):
+                    nickname = str(info.get("nickname") or "")
+                    bot_id = str(info.get("user_id") or "")
+            except Exception:
+                logger.debug(
+                    "[napcat-offline-mail] get_login_info 失败", exc_info=True
+                )
+            await self._handle_online(key, now, nickname=nickname, bot_id=bot_id)
 
-    async def _handle_online(self, key: str, client, now: float):
+    def _http_cfg(self) -> dict:
+        raw = self.config.get("napcat_http") or {}
+        return raw if isinstance(raw, dict) else {}
+
+    @staticmethod
+    def _http_json(base: str, path: str, token: str, timeout: float):
+        """用标准库请求 NapCat 的 HTTP API（同步函数，调用方包 to_thread）。"""
+        url = base.rstrip("/") + path
+        headers = {"Accept": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        def _fetch(target: str):
+            request = urllib.request.Request(target, headers=headers)
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                raw = response.read().decode("utf-8", "replace")
+            return json.loads(raw)
+
+        try:
+            return _fetch(url)
+        except urllib.error.HTTPError as exc:
+            # 有些 NapCat 配置只认 query 里的 access_token
+            if exc.code in (401, 403) and token:
+                separator = "&" if "?" in url else "?"
+                return _fetch(
+                    url
+                    + separator
+                    + "access_token="
+                    + urllib.parse.quote(token, safe="")
+                )
+            raise
+
+    async def _check_http(self, now: float):
+        cfg = self._http_cfg()
+        base = str(cfg.get("base_url") or "").strip()
+        if not base:
+            logger.warning(
+                "[napcat-offline-mail] monitor_mode=%s 但没有配置 napcat_http.base_url",
+                self.config.get("monitor_mode"),
+            )
+            return
+        token = str(cfg.get("access_token") or "")
+        try:
+            timeout = float(cfg.get("timeout") or 5)
+        except (TypeError, ValueError):
+            timeout = 5.0
+        netloc = urllib.parse.urlsplit(base).netloc or base
+        key = f"http:{netloc}"
+
+        try:
+            status = await asyncio.to_thread(
+                self._http_json, base, "/get_status", token, timeout
+            )
+        except Exception as exc:
+            await self._handle_failure(
+                key,
+                f"HTTP get_status 失败: {type(exc).__name__}: {exc}",
+                now,
+            )
+            return
+
+        if not parse_online(status):
+            await self._handle_reported_offline(
+                key, "HTTP get_status 返回 online=false", now
+            )
+            return
+
         nickname = ""
         bot_id = ""
         try:
-            info = self._unwrap(await client.api.call_action("get_login_info"))
+            info = unwrap_payload(
+                await asyncio.to_thread(
+                    self._http_json, base, "/get_login_info", token, timeout
+                )
+            )
             if isinstance(info, dict):
                 nickname = str(info.get("nickname") or "")
                 bot_id = str(info.get("user_id") or "")
         except Exception:
-            logger.debug("[napcat-offline-mail] get_login_info 失败", exc_info=True)
+            logger.debug("[napcat-offline-mail] HTTP get_login_info 失败", exc_info=True)
+        await self._handle_online(key, now, nickname=nickname, bot_id=bot_id)
+
+    async def _handle_online(
+        self, key: str, now: float, *, nickname: str = "", bot_id: str = ""
+    ):
 
         state = self._states.get(key, BotState())
         was_offline = not state.online

@@ -28,6 +28,10 @@ WebUI → 插件 → 从仓库安装，填上面地址；或把目录放进 `Ast
 | `fail_threshold` | 3 | 连续失败多少次判离线（3 × 60 秒 ≈ 3 分钟） |
 | `cooldown_minutes` | 10 | 两次告警的最小间隔，防止抖动刷邮件；0 = 不限制 |
 | `alert_when_no_adapter` | 关 | 找不到 aiocqhttp 适配器时是否也发邮件 |
+| `monitor_mode` | auto | `auto` / `astrbot` / `http`，见下方 |
+| `napcat_http.base_url` | `http://127.0.0.1:3000` | NapCat HTTP API 地址 |
+| `napcat_http.access_token` | — | NapCat HTTP token，没设留空 |
+| `napcat_http.timeout` | 5 秒 | HTTP 请求超时 |
 | `email_config.sender` | — | 发信地址 |
 | `email_config.username` | — | SMTP 用户名 |
 | `email_config.password` | — | SMTP 密码/授权码（配置页掩码） |
@@ -55,6 +59,24 @@ WebUI → 插件 → 从仓库安装，填上面地址；或把目录放进 `Ast
 4. `get_status` 成功但 `online=false` → 立即判离线并发邮件
 
 掉线原因会写进邮件：API 异常类型、`online=false`、客户端不可用等。
+
+### 两种探测方式
+
+`monitor_mode`：
+
+- **astrbot**：只通过 AstrBot 的 aiocqhttp 适配器调 `get_status`。这是最贴合「机器人还能不能发消息」的检测。
+- **http**：绕过适配器，直接请求 NapCat 的 HTTP API：
+
+  ```text
+  GET {base_url}/get_status
+  GET {base_url}/get_login_info
+  Authorization: Bearer {access_token}
+  ```
+
+  适合适配器对象不在、或想独立探测 NapCat 进程/登录状态的场景。NapCat 需要在配置里开启 HTTP 服务器（默认端口 3000）。
+- **auto**（默认）：有 aiocqhttp 适配器就用适配器；没有适配器时自动走 HTTP。
+
+> 注意：`http` 模式只能证明「NapCat 本身在线」，不能发现「AstrBot 到 NapCat 的反向 WS 断了但 NapCat 还活着」。后者请用 `astrbot` 或 `auto`。
 
 ### 时间线示例
 
