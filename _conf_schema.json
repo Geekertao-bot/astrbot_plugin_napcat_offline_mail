@@ -21,6 +21,17 @@
     },
     "hint": "默认 3 次 × 60 秒 ≈ 3 分钟，避免网络抖动误报。"
   },
+  "cooldown_minutes": {
+    "description": "两次告警的最小间隔（分钟）",
+    "type": "int",
+    "default": 10,
+    "slider": {
+      "min": 0,
+      "max": 120,
+      "step": 5
+    },
+    "hint": "防止网络抖动导致反复掉线/恢复时邮件轰炸。0 表示不限制。"
+  },
   "alert_when_no_adapter": {
     "description": "找不到 aiocqhttp 适配器时也告警",
     "type": "bool",

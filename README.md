@@ -26,6 +26,7 @@ WebUI → 插件 → 从仓库安装，填上面地址；或把目录放进 `Ast
 | --- | --- | --- |
 | `heartbeat_interval` | 60 秒 | 每隔多久调用一次 `get_status` |
 | `fail_threshold` | 3 | 连续失败多少次判离线（3 × 60 秒 ≈ 3 分钟） |
+| `cooldown_minutes` | 10 | 两次告警的最小间隔，防止抖动刷邮件；0 = 不限制 |
 | `alert_when_no_adapter` | 关 | 找不到 aiocqhttp 适配器时是否也发邮件 |
 | `email_config.sender` | — | 发信地址 |
 | `email_config.username` | — | SMTP 用户名 |

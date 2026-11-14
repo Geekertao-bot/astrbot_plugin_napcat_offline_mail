@@ -164,6 +164,19 @@ class NapcatOfflineMailPlugin(Star):
             return f"aiocqhttp:{self_id}"
         return f"aiocqhttp:{index}"
 
+    @staticmethod
+    def _unwrap(data):
+        """兼容 OneBot 返回裸对象或 {data: {...}} 两种形式。"""
+        if isinstance(data, dict) and isinstance(data.get("data"), dict):
+            return data["data"]
+        return data
+
+    @staticmethod
+    def _truthy(value) -> bool:
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() in {"true", "1", "yes", "on"}
+
     async def _check_once(self):
         platforms = self._aiocqhttp_platforms()
         now = time.time()
@@ -198,7 +211,12 @@ class NapcatOfflineMailPlugin(Star):
                 )
                 continue
 
-            online = bool(status.get("online", False)) if isinstance(status, dict) else False
+            status = self._unwrap(status)
+            online = (
+                self._truthy(status.get("online", False))
+                if isinstance(status, dict)
+                else False
+            )
             if not online:
                 await self._handle_reported_offline(
                     key, "get_status 返回 online=false", now
@@ -211,7 +229,7 @@ class NapcatOfflineMailPlugin(Star):
         nickname = ""
         bot_id = ""
         try:
-            info = await client.api.call_action("get_login_info")
+            info = self._unwrap(await client.api.call_action("get_login_info"))
             if isinstance(info, dict):
                 nickname = str(info.get("nickname") or "")
                 bot_id = str(info.get("user_id") or "")
@@ -241,6 +259,7 @@ class NapcatOfflineMailPlugin(Star):
         threshold = max(1, self._cfg_int("fail_threshold", 3))
         state = self._states.get(key, BotState())
         new_state, should_notify = on_failure(state, reason, threshold, now=now)
+        should_notify = should_notify and self._cooldown_ok(state, now)
         if platform_label:
             new_state.bot_id = new_state.bot_id or platform_label
         self._states[key] = new_state
@@ -264,6 +283,7 @@ class NapcatOfflineMailPlugin(Star):
     async def _handle_reported_offline(self, key: str, reason: str, now: float):
         state = self._states.get(key, BotState())
         new_state, should_notify = on_reported_offline(state, reason, now=now)
+        should_notify = should_notify and self._cooldown_ok(state, now)
         self._states[key] = new_state
         await self._save_state()
 
@@ -279,6 +299,12 @@ class NapcatOfflineMailPlugin(Star):
                 )
 
     # ------------------------------------------------------------------ 邮件
+    def _cooldown_ok(self, state: BotState, now: float) -> bool:
+        minutes = max(0, self._cfg_int("cooldown_minutes", 10))
+        if minutes <= 0 or not state.notified_at:
+            return True
+        return (now - state.notified_at) >= minutes * 60
+
     def _recipients(self) -> list[str]:
         raw = self._email_cfg().get("recipients") or []
         if isinstance(raw, str):
